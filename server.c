@@ -663,7 +663,7 @@ int main(int argc, char *argv[])
     /* Obtain the program name without the full path */
     progname = (progname == strrchr(argv[0], '/')) ? progname + 1 : *argv;
 
-#if 1
+#if 0
     /* Sanity check */
     if (getuid() == 0) {
         fprintf(stderr, "%s should not be run as root\n", progname);

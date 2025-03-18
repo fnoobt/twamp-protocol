@@ -243,7 +243,7 @@ int main(int argc, char *argv[])
     struct hostent *server;
 
     /* Sanity check */
-#if 1
+#if 0
     if (getuid() == 0) {
         fprintf(stderr, "%s should not be run as root\n", progname);
         exit(EXIT_FAILURE);
