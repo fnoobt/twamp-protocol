@@ -273,6 +273,8 @@ int main(int argc, char *argv[])
         serv_addr6.sin6_family = AF_INET6;
         memcpy(&serv_addr6.sin6_addr, server->h_addr, server->h_length);
         serv_addr6.sin6_port = htons(SERVER_PORT);
+        serv_addr6.sin6_flowinfo = 0;
+        serv_addr6.sin6_scope_id = 0;
 
         inet_ntop(AF_INET6, &(serv_addr6.sin6_addr), str_serv, INET6_ADDRSTRLEN);
         printf("Connecting to Server %s...\n", str_serv);
@@ -380,7 +382,7 @@ int main(int argc, char *argv[])
 
     if(socket_family == AF_INET6) {
         socklen_t addr_size = sizeof(host_addr6);
-        getsockname(servfd, (struct sockaddr *)&host_addr, &addr_size);
+        getsockname(servfd, (struct sockaddr *)&host_addr6, &addr_size);
         inet_ntop(AF_INET6, &(host_addr6.sin6_addr), str_host, sizeof(str_host));
     } else {
         socklen_t addr_size = sizeof(host_addr);
@@ -406,7 +408,7 @@ int main(int argc, char *argv[])
     for (i = 0; i < test_sessions_no; i++) {
 
         /* Setup test socket */
-        twamp_test[active_sessions].testfd = socket(AF_INET, SOCK_DGRAM, 0);
+        twamp_test[active_sessions].testfd = socket(socket_family, SOCK_DGRAM, 0);
         if (twamp_test[active_sessions].testfd < 0) {
             perror("Error opening socket");
             continue;
@@ -425,7 +427,7 @@ int main(int argc, char *argv[])
                 local_addr6.sin6_port = htons(twamp_test[active_sessions].testport);
                 if (!bind
                     (twamp_test[active_sessions].testfd,
-                     (struct sockaddr *)&local_addr6, sizeof(struct sockaddr)))
+                     (struct sockaddr *)&local_addr6, sizeof(local_addr6)))
                     break;
             }
         } else {
@@ -440,7 +442,7 @@ int main(int argc, char *argv[])
                 local_addr.sin_port = htons(twamp_test[active_sessions].testport);
                 if (!bind
                     (twamp_test[active_sessions].testfd,
-                     (struct sockaddr *)&local_addr, sizeof(struct sockaddr)))
+                     (struct sockaddr *)&local_addr, sizeof(local_addr)))
                     break;
             }
         }
@@ -452,19 +454,27 @@ int main(int argc, char *argv[])
         }
 
         /* Set socket options */
-        set_socket_option(twamp_test[active_sessions].testfd, HDR_TTL);
-        set_socket_tos(twamp_test[active_sessions].testfd, snd_tos);
+        set_socket_option(twamp_test[active_sessions].testfd, HDR_TTL, socket_family);
+        set_socket_tos(twamp_test[active_sessions].testfd, snd_tos, socket_family);
 
         RequestSession req;
         memset(&req, 0, sizeof(req));
         req.Type = kRequestTWSession;
-        req.IPVN = 4;
         req.SenderPort = htons(twamp_test[active_sessions].testport);
         req.ReceiverPort = htons(port_recv + rand() % 1000);
-        if(socket_family == AF_INET) {
-            req.SenderAddress = host_addr.sin_addr.s_addr;
-            //req.SenderAddress = 0;
-            req.ReceiverAddress = serv_addr.sin_addr.s_addr;
+        if (socket_family == AF_INET6) {
+            req.IPVN = 6;  // 设置IPVN为IPv6
+            memcpy(req.SenderAddress, &host_addr6.sin6_addr, 16);
+            memset(req.MBZ1, 0, sizeof(req.MBZ1));
+            memcpy(req.ReceiverAddress, &serv_addr6.sin6_addr, 16);
+            memset(req.MBZ2, 0, sizeof(req.MBZ2));
+        } else if(socket_family == AF_INET){
+            req.IPVN = 4;
+            memcpy(req.SenderAddress, &host_addr.sin_addr, 4);
+            memset(req.SenderAddress + 4, 0, 12);
+            memcpy(req.ReceiverAddress, &serv_addr.sin_addr, 4);
+            memset(req.ReceiverAddress + 4, 0, 12);
+            memset(req.MBZ2, 0, sizeof(req.MBZ2));
         }
         if ((workmode & KModeSymmetrical) == KModeSymmetrical) {
             mbz_offset = 27;
@@ -515,7 +525,7 @@ int main(int argc, char *argv[])
             close(twamp_test[active_sessions].testfd);
             continue;
         }
-        twamp_test[active_sessions].port = ntohs(acc.Port);
+        twamp_test[active_sessions].port = acc.Port;
         printf("Received Accept-Session for Receiver port %d...\n",
                twamp_test[active_sessions].port);
 
@@ -598,11 +608,11 @@ int main(int argc, char *argv[])
             memcpy(&pack.padding[mbz_offset], &twamp_test[i].serveroct, 2);
 
             if(socket_family == AF_INET6) {
-                serv_addr6.sin6_port = htons(twamp_test[i].port);
+                serv_addr6.sin6_port = twamp_test[i].port; // 移除 htons
                 rv = sendto(twamp_test[i].testfd, &pack, payload_len, 0,
                             (struct sockaddr *)&serv_addr6, sizeof(serv_addr6));
             } else {
-                serv_addr.sin_port = htons(twamp_test[i].port);
+                serv_addr.sin_port = twamp_test[i].port; // 移除 htons
                 rv = sendto(twamp_test[i].testfd, &pack, payload_len, 0,
                             (struct sockaddr *)&serv_addr, sizeof(serv_addr));
             }

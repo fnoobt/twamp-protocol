@@ -1,6 +1,7 @@
 .project
 .cproject
 *.swp
+settings.json
 client
 server
 tags

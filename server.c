@@ -419,10 +419,10 @@ static int send_accept_session(struct client_info *client, RequestSession * req)
                     ntohl(client->sessions[client->sess_no].sid_rand));
 
             /* Set socket options */
-            set_socket_option(testfd, HDR_TTL);
+            set_socket_option(testfd, HDR_TTL, socket_family);
             set_socket_tos(testfd,
                            (client->sessions[client->sess_no].
-                            req.TypePDescriptor << 2));
+                            req.TypePDescriptor << 2), socket_family);
 
             client->sess_no++;
 
@@ -449,13 +449,21 @@ static int receive_request_session(struct client_info *client,
     char str_client[INET6_ADDRSTRLEN];   /* String for Client IP address */
 
     if(socket_family == AF_INET6) {
-        inet_ntop(AF_INET6, &(client->addr6.sin6_addr), str_client, sizeof(str_client));
-        fprintf(stderr, "Server received RequestTWSession message\n");
+        /* inet_ntop(AF_INET6, &(client->addr6.sin6_addr), str_client, sizeof(str_client));
+        fprintf(stderr, "Server received RequestTWSession message\n"); */
+
+        struct in6_addr sender_addr, receiver_addr;
+        memcpy(&sender_addr, req->SenderAddress, sizeof(sender_addr));
+        memcpy(&receiver_addr, req->ReceiverAddress, sizeof(receiver_addr));
+        char str_sender[INET6_ADDRSTRLEN], str_receiver[INET6_ADDRSTRLEN];
+        inet_ntop(AF_INET6, &sender_addr, str_sender, sizeof(str_sender));
+        inet_ntop(AF_INET6, &receiver_addr, str_receiver, sizeof(str_receiver));
+        fprintf(stderr, "Request from %s to %s\n", str_sender, str_receiver);
     } else {
         char str_server[INET_ADDRSTRLEN];
         inet_ntop(AF_INET, &(client->addr.sin_addr), str_client, INET_ADDRSTRLEN);
         struct in_addr se_addr;
-        se_addr.s_addr = req->ReceiverAddress;
+        memcpy(&se_addr, req->SenderAddress, sizeof(se_addr));
         inet_ntop(AF_INET, &(se_addr), str_server, INET_ADDRSTRLEN);
         fprintf(stderr, "Server %s received RequestTWSession message\n", str_server);
     }
@@ -550,6 +558,9 @@ static int receive_test_message(struct client_info *client, int session_index)
                    && c_msg->cmsg_type == IP_TOS) {
             fw_tos = *(int *)CMSG_DATA(c_msg);
 
+        } else if ((c_msg->cmsg_level == IPPROTO_IP && c_msg->cmsg_type == IP_TOS) ||
+           (c_msg->cmsg_level == IPPROTO_IPV6 && c_msg->cmsg_type == IPV6_TCLASS)) {
+            fw_tos = *(int *)CMSG_DATA(c_msg);
         } else {
             fprintf(stderr,
                     "\tWarning, unexpected data of level %i and type %i\n",
@@ -572,11 +583,11 @@ static int receive_test_message(struct client_info *client, int session_index)
         pack_reflect.sender_tos = fw_tos;   // Copy from the IP header packet from Sender
     }
 
-    if(socket_family == AF_INET6) {
+    /* if(socket_family == AF_INET6) {
         addr6.sin6_port = client->sessions[session_index].req.SenderPort;
     } else {
         addr.sin_port = client->sessions[session_index].req.SenderPort;
-    }
+    } */
     /* FW Loss Calculation */
 
     if (client->sessions[session_index].fw_msg == 0) {
@@ -588,7 +599,7 @@ static int receive_test_message(struct client_info *client, int session_index)
 
             set_socket_tos(client->sessions[session_index].socket,
                            (client->sessions[session_index].
-                            req.TypePDescriptor << 2) + ecn_tos);
+                            req.TypePDescriptor << 2) + ecn_tos, socket_family);
         }
     } else {
         client->sessions[session_index].fw_msg =

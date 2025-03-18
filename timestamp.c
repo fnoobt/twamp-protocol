@@ -164,7 +164,7 @@ void print_metrics_server(char *addr_cl, uint16_t snd_port, uint16_t rcv_port,
 
 }
 
-void set_socket_option(int socket, uint8_t ip_ttl)
+void set_socket_option(int socket, uint8_t ip_ttl, int socket_family)
 {
     /* Set socket options : timeout, IPTTL, IP_RECVTTL, IP_RECVTOS */
     uint8_t One = 1;
@@ -186,57 +186,75 @@ void set_socket_option(int socket, uint8_t ip_ttl)
             "No way to set the timeout value for incoming packets on that platform.\n");
 #endif
 
-    /* Set IPTTL value to twamp standard: 255 */
-#ifdef IP_TTL
-    result = setsockopt(socket, IPPROTO_IP, IP_TTL, &ip_ttl, sizeof(ip_ttl));
-    if (result != 0) {
-        fprintf(stderr, "[PROBLEM] Cannot set the TTL value for emission.\n");
-    }
-#else
-    fprintf(stderr,
-            "No way to set the TTL value for leaving packets on that platform.\n");
-#endif
+    if (socket_family == AF_INET6) {
+        #ifdef IPV6_HOPLIMIT
+            setsockopt(socket, IPPROTO_IPV6, IPV6_HOPLIMIT, &ip_ttl, sizeof(ip_ttl));
+        #endif
+        #ifdef IPV6_RECVHOPLIMIT
+            setsockopt(socket, IPPROTO_IPV6, IPV6_RECVHOPLIMIT, &One, sizeof(One));
+        #endif
+        #ifdef IPV6_RECVTCLASS
+            setsockopt(socket, IPPROTO_IPV6, IPV6_RECVTCLASS, &One, sizeof(One));
+        #endif
+    } else {
+        /* Set IPTTL value to twamp standard: 255 */
+        #ifdef IP_TTL
+            result = setsockopt(socket, IPPROTO_IP, IP_TTL, &ip_ttl, sizeof(ip_ttl));
+            if (result != 0) {
+                fprintf(stderr, "[PROBLEM] Cannot set the TTL value for emission.\n");
+            }
+        #else
+            fprintf(stderr,
+                    "No way to set the TTL value for leaving packets on that platform.\n");
+        #endif
+        
+        /* Set receive IP_TTL option */
+        #ifdef IP_RECVTTL
+            result = setsockopt(socket, IPPROTO_IP, IP_RECVTTL, &One, sizeof(One));
+            if (result != 0) {
+                fprintf(stderr,
+                        "[PROBLEM] Cannot set the socket option for TTL reception.\n");
+            }
+        #else
+            fprintf(stderr,
+                    "No way to ask for the TTL of incoming packets on that platform.\n");
+        #endif
 
-    /* Set receive IP_TTL option */
-#ifdef IP_RECVTTL
-    result = setsockopt(socket, IPPROTO_IP, IP_RECVTTL, &One, sizeof(One));
-    if (result != 0) {
-        fprintf(stderr,
-                "[PROBLEM] Cannot set the socket option for TTL reception.\n");
+        /* Set receive IP_TOS option */
+        #ifdef IP_RECVTOS
+            result = setsockopt(socket, IPPROTO_IP, IP_RECVTOS, &One, sizeof(One));
+            if (result != 0) {
+                fprintf(stderr,
+                        "[PROBLEM] Cannot set the socket option for TOS reception.\n");
+            }
+        #else
+            fprintf(stderr,
+                    "No way to ask for the TOS of incoming packets on that platform.\n");
+        #endif
     }
-#else
-    fprintf(stderr,
-            "No way to ask for the TTL of incoming packets on that platform.\n");
-#endif
-
-    /* Set receive IP_TOS option */
-#ifdef IP_RECVTOS
-    result = setsockopt(socket, IPPROTO_IP, IP_RECVTOS, &One, sizeof(One));
-    if (result != 0) {
-        fprintf(stderr,
-                "[PROBLEM] Cannot set the socket option for TOS reception.\n");
-    }
-#else
-    fprintf(stderr,
-            "No way to ask for the TOS of incoming packets on that platform.\n");
-#endif
-
 }
 
-void set_socket_tos(int socket, uint8_t ip_tos)
+void set_socket_tos(int socket, uint8_t ip_tos, int socket_family)
 {
     /* Set socket options : IP_TOS */
     int result;
 
-    /* Set IP TOS value */
-#ifdef IP_TOS
-    result = setsockopt(socket, IPPROTO_IP, IP_TOS, &ip_tos, sizeof(ip_tos));
-    if (result != 0) {
-        fprintf(stderr, "[PROBLEM] Cannot set the TOS value for emission.\n");
+    if (socket_family == AF_INET6)
+    {
+        #ifdef IPV6_TCLASS
+                setsockopt(socket, IPPROTO_IPV6, IPV6_TCLASS, &ip_tos, sizeof(ip_tos));
+        #endif
+    } else {
+        /* Set IP TOS value */
+        #ifdef IP_TOS
+            result = setsockopt(socket, IPPROTO_IP, IP_TOS, &ip_tos, sizeof(ip_tos));
+            if (result != 0) {
+                fprintf(stderr, "[PROBLEM] Cannot set the TOS value for emission.\n");
+            }
+        #else
+            fprintf(stderr,
+                    "No way to set the TOS value for leaving packets on that platform.\n");
+        #endif
     }
-#else
-    fprintf(stderr,
-            "No way to set the TOS value for leaving packets on that platform.\n");
-#endif
 
 }

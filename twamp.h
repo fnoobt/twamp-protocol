@@ -119,10 +119,10 @@ typedef struct request_session {
     uint32_t PacketsNo;         /* 0 */
     uint16_t SenderPort;
     uint16_t ReceiverPort;
-    uint32_t SenderAddress;
-    uint8_t MBZ1[12];           /* Sender Address Cont */
-    uint32_t ReceiverAddress;
-    uint8_t MBZ2[12];           /* Receiver Address Cont */
+    uint8_t SenderAddress[16];
+    uint8_t MBZ1[48];           /* Sender Address Cont */
+    uint8_t ReceiverAddress[16];
+    uint8_t MBZ2[48];           /* Receiver Address Cont */
     uint8_t SID[16];            /* 0 */
     uint32_t PaddingLength;
     TWAMPTimestamp StartTime;
@@ -254,8 +254,8 @@ void print_metrics_server(char *addr_cl, uint16_t snd_port, uint16_t rcv_port,
                           uint8_t snd_tos, uint8_t fw_tos,
                           const ReflectorUPacket * pack);
 
-void set_socket_option(int socket, uint8_t ip_ttl);
+void set_socket_option(int socket, uint8_t ip_ttl, int socket_family);
 
-void set_socket_tos(int socket, uint8_t ip_tos);
+void set_socket_tos(int socket, uint8_t ip_tos, int socket_family);
 
 #endif                          // _TWAMP_H__
