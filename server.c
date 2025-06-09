@@ -22,8 +22,8 @@
 #include <time.h>
 #include "twamp.h"
 
-#define MAX_CLIENTS 10
-#define MAX_SESSIONS_PER_CLIENT 10
+#define MAX_CLIENTS 32              // 最大客户端数
+#define MAX_SESSIONS_PER_CLIENT 32  // 每个客户端的最大会话数
 #define PORTBASE	20000
 
 typedef enum {

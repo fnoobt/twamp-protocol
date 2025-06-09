@@ -525,7 +525,7 @@ int main(int argc, char *argv[])
             close(twamp_test[active_sessions].testfd);
             continue;
         }
-        twamp_test[active_sessions].port = acc.Port;
+        twamp_test[active_sessions].port = ntohs(acc.Port);
         printf("Received Accept-Session for Receiver port %d...\n",
                twamp_test[active_sessions].port);
 
@@ -608,11 +608,11 @@ int main(int argc, char *argv[])
             memcpy(&pack.padding[mbz_offset], &twamp_test[i].serveroct, 2);
 
             if(socket_family == AF_INET6) {
-                serv_addr6.sin6_port = twamp_test[i].port; // 移除 htons
+                serv_addr6.sin6_port =  htons(twamp_test[i].port);
                 rv = sendto(twamp_test[i].testfd, &pack, payload_len, 0,
                             (struct sockaddr *)&serv_addr6, sizeof(serv_addr6));
             } else {
-                serv_addr.sin_port = twamp_test[i].port; // 移除 htons
+                serv_addr.sin_port =  htons(twamp_test[i].port); 
                 rv = sendto(twamp_test[i].testfd, &pack, payload_len, 0,
                             (struct sockaddr *)&serv_addr, sizeof(serv_addr));
             }
